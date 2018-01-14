@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import csv
-import os
+import os, sys
 import cv2
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Flatten, Dense, core
+from keras.layers.convolutional import Convolution2D, Cropping2D
+from keras.layers.pooling import MaxPooling2D
 
 def read_csv(dirname):
     lines = []
@@ -43,12 +45,88 @@ X_train, y_train = read_csv("car-data/run-0")
 print("X_train, y_train shapes:", X_train.shape, y_train.shape)
 
 image_shape = (X_train.shape[1], X_train.shape[2], X_train.shape[3])
-print("image shape:", image_shape)
+print("image shape:", image_shape) # should be: image shape: (160, 320, 3)
 
 model = Sequential()
+
+# Poor man's normalization.
 model.add(core.Lambda(lambda x: x/255.0 - 0.5, input_shape=image_shape))
-model.add(Flatten())
-model.add(Dense(1))
+# Crops (removes) these pixels:
+# - top 75 pixels
+# - bottom 25 pixels
+# - 0 from the left or right
+model.add(Cropping2D(cropping=((75,25), (1,1))))
+
+#model_type = "basic"
+#model_type = "lenet"
+model_type = "nvidia"
+
+print("Using model_type:", model_type)
+
+if model_type == "basic":
+
+    model.add(Flatten())
+    model.add(Dense(1))
+
+elif model_type == "lenet":
+    model.add(Convolution2D(6, 5, 5, activation="relu"))
+    model.add(MaxPooling2D())
+    model.add(Convolution2D(6, 5, 5, activation="relu"))
+    model.add(MaxPooling2D())
+    model.add(Flatten())
+    model.add(Dense(120))
+    model.add(Dense(84))
+    model.add(Dense(1))
+    model.summary()
+    # X_train, y_train shapes: (1501, 160, 320, 3) (1501,)
+    # image shape: (160, 320, 3)
+    # Using model_type: lenet
+    # ____________________________________________________________________________________________________
+    # Layer (type)                     Output Shape          Param #     Connected to
+    # ====================================================================================================
+    # lambda_1 (Lambda)                (None, 160, 320, 3)   0           lambda_input_1[0][0]
+    # ____________________________________________________________________________________________________
+    # cropping2d_1 (Cropping2D)        (None, 60, 318, 3)    0           lambda_1[0][0]
+    # ____________________________________________________________________________________________________
+    # convolution2d_1 (Convolution2D)  (None, 56, 314, 6)    456         cropping2d_1[0][0]
+    # ____________________________________________________________________________________________________
+    # maxpooling2d_1 (MaxPooling2D)    (None, 28, 157, 6)    0           convolution2d_1[0][0]
+    # ____________________________________________________________________________________________________
+    # convolution2d_2 (Convolution2D)  (None, 24, 153, 6)    906         maxpooling2d_1[0][0]
+    # ____________________________________________________________________________________________________
+    # maxpooling2d_2 (MaxPooling2D)    (None, 12, 76, 6)     0           convolution2d_2[0][0]
+    # ____________________________________________________________________________________________________
+    # flatten_1 (Flatten)              (None, 5472)          0           maxpooling2d_2[0][0]
+    # ____________________________________________________________________________________________________
+    # dense_1 (Dense)                  (None, 120)           656760      flatten_1[0][0]
+    # ____________________________________________________________________________________________________
+    # dense_2 (Dense)                  (None, 84)            10164       dense_1[0][0]
+    # ____________________________________________________________________________________________________
+    # dense_3 (Dense)                  (None, 1)             85          dense_2[0][0]
+    # ====================================================================================================
+    # Total params: 668,371
+    # Trainable params: 668,371
+    # Non-trainable params: 0
+
+elif model_type == "nvidia":
+    model.add(Convolution2D(24, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+    model.add(Convolution2D(36, 5, 5, subsample=(2,2), activation="relu"))
+    model.add(Convolution2D(48, 5, 5, subsample=(2,2), activation="relu"))
+    model.add(Convolution2D(64, 3, 3, activation="relu"))
+    model.add(Convolution2D(64, 3, 3, activation="relu"))
+    model.add(Flatten())
+    model.add(Dense(100))
+    model.add(Dense(50))
+    model.add(Dense(10))
+    model.add(Dense(1))
+    model.summary()
+
+else:
+    print("ERROR: no valid model specified, model_type:",model_type)
+    sys.exit(1)
+
+print("NOT TRAINING")
+sys.exit(1)
 
 model.compile(loss='mse', optimizer='adam')
 model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=5)
