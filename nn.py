@@ -13,12 +13,14 @@ from keras.layers.pooling import MaxPooling2D
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('data_dir', 'car-data/run-0', "directory of car data")
+flags.DEFINE_string('data_dirs', 'car-data/run-0', "directories of car data")
 flags.DEFINE_integer('epochs', 5, "# epochs")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
+flags.DEFINE_boolean('augment', True, "augment all data with horizontally flipping the image")
 
-def read_csv(dirname):
+
+def read_csv(dirname, augment_with_horiz_flip=False):
     print("Reading directory:", dirname)
     lines = []
     with open(dirname + "/driving_log.csv") as csvfile:
@@ -45,14 +47,30 @@ def read_csv(dirname):
         measurement = float(line[3])
         measurements.append(measurement)
 
-    X_train = np.array(images)
-    y_train = np.array(measurements)
-    return X_train, y_train
+        if augment_with_horiz_flip:
+            images.append(cv2.flip(image,1))
+            measurements.append(measurement * -1.0)
+
+    return images, measurements
 
 def main(_):
-    X_train, y_train = read_csv(FLAGS.data_dir)
-    #X_train, y_train = read_csv("car-data/run-1")
+    data_dirs_string = FLAGS.data_dirs
+    data_dirs_list = [x.strip() for x in data_dirs_string.split(',')]
 
+    # car-data/run-2 : 2 regular laps
+    # car-data/run-3 : 1 backwards lap
+
+    all_images = []
+    all_measurements = []
+
+    for data_dir in data_dirs_list:
+        images, measurements = read_csv(data_dir, FLAGS.augment)
+        all_images.extend(images)
+        all_measurements.extend(measurements)
+        print("len all_images, all_measurements:", len(all_images), len(all_measurements))
+
+    X_train = np.array(all_images)
+    y_train = np.array(all_measurements)
     print("X_train, y_train shapes:", X_train.shape, y_train.shape)
 
     image_shape = (X_train.shape[1], X_train.shape[2], X_train.shape[3])
