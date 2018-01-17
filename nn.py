@@ -14,6 +14,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('data_dirs', 'car-data/run-0', "directories of car data")
+flags.DEFINE_string('model_file_output', 'model.h5', "output model file name")
 flags.DEFINE_integer('epochs', 5, "# epochs")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
@@ -42,7 +43,8 @@ def read_csv(dirname, augment_with_horiz_flip=False):
             sys.exit(1)
         # cv2.imread() reads in as BGR by default. Convert to RGB for our own sanity.
         image = cv2.imread(rel_path_image_filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
         images.append(image)
         measurement = float(line[3])
         measurements.append(measurement)
@@ -83,6 +85,8 @@ def main(_):
     model = Sequential()
 
     # Poor man's normalization.
+    # Image data starts at 0-255 (for RGB or YUV).
+    # /255 makes it 0-1, then subtracting 0.5 centers it at 0.
     model.add(core.Lambda(lambda x: x/255.0 - 0.5, input_shape=image_shape))
     # Crops (removes) these pixels:
     # - top 65 pixels
@@ -167,7 +171,7 @@ def main(_):
         print("ERROR: no valid model specified, model_type:",model_type)
         sys.exit(1)
 
-    model.summary()
+    #model.summary()
 
     model.compile(loss='mse', optimizer='adam')
 
@@ -177,7 +181,8 @@ def main(_):
 
     model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=FLAGS.epochs)
     
-    model.save('model.h5')
+    model.save(FLAGS.model_file_output)
+    print("Saved model in", FLAGS.model_file_output)
 
 # parses flags and calls the `main` function above
 if __name__ == '__main__':
