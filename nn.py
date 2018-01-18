@@ -62,8 +62,10 @@ def main(_):
 
     # r-0: fwd lap
     # r-1: fwd lap (very clean!) - horrible data though? Do not use!
+    # r-2: fwd lap
     # r-rev-0: reverse lap
     # r-swerve-0: swerving in from the right edges for 1 lap
+    # r-swerve-1: swerving in from the left edges for 1 lap
 
     all_images = []
     all_measurements = []
