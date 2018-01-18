@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from keras.models import Sequential
-from keras.layers import Flatten, Dense, core
+from keras.layers import Flatten, Dense, core, Dropout
 from keras.layers.convolutional import Convolution2D, Cropping2D
 from keras.layers.pooling import MaxPooling2D
 
@@ -16,6 +16,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('data_dirs', 'car-data/run-0', "directories of car data")
 flags.DEFINE_string('model_file_output', 'model.h5', "output model file name")
 flags.DEFINE_integer('epochs', 5, "# epochs")
+flags.DEFINE_float('dropout_rate', 0.5, "dropout rate = % to drop")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
 flags.DEFINE_boolean('augment', True, "augment all data with horizontally flipping the image")
@@ -43,8 +44,8 @@ def read_csv(dirname, augment_with_horiz_flip=False):
             sys.exit(1)
         # cv2.imread() reads in as BGR by default. Convert to RGB for our own sanity.
         image = cv2.imread(rel_path_image_filename)
-        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        #image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
         images.append(image)
         measurement = float(line[3])
         measurements.append(measurement)
@@ -59,8 +60,10 @@ def main(_):
     data_dirs_string = FLAGS.data_dirs
     data_dirs_list = [x.strip() for x in data_dirs_string.split(',')]
 
-    # car-data/run-2 : 2 regular laps
-    # car-data/run-3 : 1 backwards lap
+    # r-0: fwd lap
+    # r-1: fwd lap (very clean!)
+    # r-rev-0: reverse lap
+    # r-swerve-0: swerving in from the right edges for 1 lap
 
     all_images = []
     all_measurements = []
@@ -81,6 +84,7 @@ def main(_):
     #model_type = "basic"
     #model_type = "lenet"
     model_type = FLAGS.model_type
+    dropout_rate = FLAGS.dropout_rate
 
     model = Sequential()
 
@@ -95,6 +99,7 @@ def main(_):
     model.add(Cropping2D(cropping=((65,25), (1,1))))
 
     print("Using model_type:", model_type)
+    print("Using dropout rate:", dropout_rate)
 
     if model_type == "basic":
     
@@ -157,10 +162,15 @@ def main(_):
     elif model_type == "nvidia":
 
         model.add(Convolution2D(24, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+        model.add(Dropout(dropout_rate))
         model.add(Convolution2D(36, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+        model.add(Dropout(dropout_rate))
         model.add(Convolution2D(48, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+        model.add(Dropout(dropout_rate))
         model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
+        model.add(Dropout(dropout_rate))
         model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
+        model.add(Dropout(dropout_rate))
         model.add(Flatten())
         model.add(Dense(100))
         model.add(Dense(50))
