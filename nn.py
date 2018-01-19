@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import csv
-import os, sys
+import os, sys, copy
 import cv2
+import sklearn
 import numpy as np
 import tensorflow as tf
 from keras.models import Sequential
@@ -10,6 +11,8 @@ from keras.layers import Flatten, Dense, core, Dropout
 from keras.layers.convolutional import Convolution2D, Cropping2D
 from keras.layers.pooling import MaxPooling2D
 from keras import optimizers
+from sklearn.model_selection import train_test_split
+from random import shuffle
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -17,46 +20,85 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('data_dirs', 'car-data/run-0', "directories of car data")
 flags.DEFINE_string('model_file_output', 'model.h5', "output model file name")
 flags.DEFINE_integer('epochs', 5, "# epochs")
+flags.DEFINE_integer('batch_size', 32, "batch_size")
 flags.DEFINE_float('dropout_rate', 0.5, "dropout rate = % to drop")
 flags.DEFINE_float('learning_rate', 0.001, "learning rate")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
 flags.DEFINE_boolean('augment', True, "augment all data with horizontally flipping the image")
 
+CENTER_IMAGE_INDEX = 0
+STEERING_ANGLE_INDEX = 3
+FLIP_INDEX = 7
 
-def read_csv(dirname, augment_with_horiz_flip=False):
+def fixup_paths(line, dirname):
+    for ii in range(3): # uses CENTER_IMAGE_INDEX implicitly
+        base_filename = os.path.basename(line[ii])
+        rel_path_image_filename = dirname + "/IMG/" + base_filename
+        line[ii] = rel_path_image_filename
+    return line
+
+def read_csv(dirname):
     print("Reading directory:", dirname)
     lines = []
-    with open(dirname + "/driving_log.csv") as csvfile:
+    with open(dirname + '/driving_log.csv') as csvfile:
         reader = csv.reader(csvfile)
         for line in reader:
+            line = fixup_paths(line, dirname)
+            # Adding a 0 or 1 to determine if the image should be flipped
+            # when it's processed.
+            line.append(0)
+            # Since we're changing a list, make a copy of the current list
+            # before we change it below.
+            # copy() works, and deepcopy() isn't required, because we changed
+            # an int, for which copy() does the same thing as deepcopy().
+            lines.append(copy.copy(line))
+            line[FLIP_INDEX] = 1 # flip
             lines.append(line)
+    return lines
+    
 
-    images = []
-    measurements = []
+total_images_returned = 0
+total_generator_calls = 0
 
-    for line in lines:
+def generator(gen_name, samples, batch_size=32):
+    global total_images_returned
+    global total_generator_calls
 
-        # csv fields are:
-        #   center_image left_image right_image steering_angle throttle break speed
-        base_filename = os.path.basename(line[0])
-        rel_path_image_filename = dirname + "/IMG/" + base_filename
-        if rel_path_image_filename == None:
-            print("ERROR: path does not exist:", rel_path_image_filename)
-            sys.exit(1)
-        # cv2.imread() reads in as BGR by default. Convert to RGB for our own sanity.
-        image = cv2.imread(rel_path_image_filename)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        #image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-        images.append(image)
-        measurement = float(line[3])
-        measurements.append(measurement)
+    num_samples = len(samples)
+    while 1: # Loop forever so the generator never terminates
+        shuffle(samples)
+        #print(gen_name, "generator range(0,", num_samples, ",", batch_size, ")")
+        for offset in range(0, num_samples, batch_size):
+            #print(gen_name, "generator offset:", offset)
+            batch_samples = samples[offset:offset+batch_size]
 
-        if augment_with_horiz_flip:
-            images.append(cv2.flip(image,1))
-            measurements.append(measurement * -1.0)
+            images = []
+            angles = []
+            for batch_sample in batch_samples:
+                name = batch_sample[CENTER_IMAGE_INDEX]
+                center_image = cv2.imread(name)
+                # cv2.imread() reads in as BGR by default. Convert to RGB
+                # for training the model.
+                center_image = cv2.cvtColor(center_image, cv2.COLOR_BGR2RGB)
+                center_angle = float(batch_sample[STEERING_ANGLE_INDEX])
+                should_flip = int(batch_sample[FLIP_INDEX])
 
-    return images, measurements
+                if should_flip == 1:
+                    center_image = cv2.flip(center_image,1)
+                    center_angle = center_angle * -1.0
+
+                images.append(center_image)
+                angles.append(center_angle)
+
+                total_images_returned = total_images_returned + 1
+
+            # trim image to only see section with road
+            X_train = np.array(images)
+            y_train = np.array(angles)
+            total_generator_calls = total_generator_calls + 1
+            #print(gen_name, "returning y_train shape:", y_train.shape)
+            yield (X_train, y_train)
 
 def main(_):
     data_dirs_string = FLAGS.data_dirs
@@ -69,27 +111,26 @@ def main(_):
     # r-swerve-0: swerving in from the right edges for 1 lap
     # r-swerve-1: swerving in from the left edges for 1 lap
 
-    all_images = []
-    all_measurements = []
+    samples = []
 
     for data_dir in data_dirs_list:
-        images, measurements = read_csv(data_dir, FLAGS.augment)
-        all_images.extend(images)
-        all_measurements.extend(measurements)
-        print("len all_images, all_measurements:", len(all_images), len(all_measurements))
+        lines = read_csv(data_dir)
+        print("Added", len(lines), "samples from", data_dir)
+        samples.extend(lines)
 
-    X_train = np.array(all_images)
-    y_train = np.array(all_measurements)
-    print("X_train, y_train shapes:", X_train.shape, y_train.shape)
+    print("Total samples:", len(samples), "(including horiz flipping)")
+    #X_train = np.array(all_images)
+    #y_train = np.array(all_measurements)
+    #print("X_train, y_train shapes:", X_train.shape, y_train.shape)
 
-    image_shape = (X_train.shape[1], X_train.shape[2], X_train.shape[3])
-    print("image shape:", image_shape) # should be: image shape: (160, 320, 3)
+    #image_shape = (X_train.shape[1], X_train.shape[2], X_train.shape[3])
+    #print("image shape:", image_shape) # should be: image shape: (160, 320, 3)
+    image_shape = (160, 320, 3)
 
-    #model_type = "basic"
-    #model_type = "lenet"
     model_type = FLAGS.model_type
     dropout_rate = FLAGS.dropout_rate
     learning_rate = FLAGS.learning_rate
+    batch_size = FLAGS.batch_size
 
     model = Sequential()
 
@@ -106,6 +147,7 @@ def main(_):
     print("Using model_type:", model_type)
     print("Using dropout rate:", dropout_rate)
     print("Using learning rate", learning_rate)
+    print("Using batch size:", batch_size)
 
     if model_type == "basic":
     
@@ -196,10 +238,24 @@ def main(_):
         print("NOT TRAINING")
         sys.exit(1)
 
-    model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=FLAGS.epochs)
+    train_samples, validation_samples = train_test_split(samples, test_size=0.2)
+    print("train and validation sample count:", len(train_samples), len(validation_samples))
+
+    train_generator = generator("train_generator", train_samples, batch_size=batch_size)
+    validation_generator = generator("validation_generator", validation_samples, batch_size=batch_size)
+
+    #model.fit(X_train, y_train, validation_split=0.2, shuffle=True, nb_epoch=FLAGS.epochs)
+    model.fit_generator(train_generator, 
+                        samples_per_epoch=len(train_samples), 
+                        validation_data=validation_generator, 
+                        nb_val_samples=len(validation_samples), 
+                        nb_epoch=FLAGS.epochs,
+                        verbose=1)
     
     model.save(FLAGS.model_file_output)
     print("Saved model in", FLAGS.model_file_output)
+    print("total_images_returned by generator:", total_images_returned)
+    print("total_generator_calls:", total_generator_calls)
 
 # parses flags and calls the `main` function above
 if __name__ == '__main__':
