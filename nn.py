@@ -9,6 +9,7 @@ from keras.models import Sequential
 from keras.layers import Flatten, Dense, core, Dropout
 from keras.layers.convolutional import Convolution2D, Cropping2D
 from keras.layers.pooling import MaxPooling2D
+from keras import optimizers
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -17,6 +18,7 @@ flags.DEFINE_string('data_dirs', 'car-data/run-0', "directories of car data")
 flags.DEFINE_string('model_file_output', 'model.h5', "output model file name")
 flags.DEFINE_integer('epochs', 5, "# epochs")
 flags.DEFINE_float('dropout_rate', 0.5, "dropout rate = % to drop")
+flags.DEFINE_float('learning_rate', 0.001, "learning rate")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
 flags.DEFINE_boolean('augment', True, "augment all data with horizontally flipping the image")
@@ -62,7 +64,7 @@ def main(_):
 
     # r-0: fwd lap
     # r-1: fwd lap (very clean!) - horrible data though? Do not use!
-    # r-2: fwd lap
+    # r-2: fwd lap - problem data?
     # r-rev-0: reverse lap
     # r-swerve-0: swerving in from the right edges for 1 lap
     # r-swerve-1: swerving in from the left edges for 1 lap
@@ -87,6 +89,7 @@ def main(_):
     #model_type = "lenet"
     model_type = FLAGS.model_type
     dropout_rate = FLAGS.dropout_rate
+    learning_rate = FLAGS.learning_rate
 
     model = Sequential()
 
@@ -102,6 +105,7 @@ def main(_):
 
     print("Using model_type:", model_type)
     print("Using dropout rate:", dropout_rate)
+    print("Using learning rate", learning_rate)
 
     if model_type == "basic":
     
@@ -185,7 +189,8 @@ def main(_):
 
     #model.summary()
 
-    model.compile(loss='mse', optimizer='adam')
+    adam = optimizers.Adam(lr=learning_rate)
+    model.compile(loss='mse', optimizer=adam)
 
     if FLAGS.dont_run:
         print("NOT TRAINING")
