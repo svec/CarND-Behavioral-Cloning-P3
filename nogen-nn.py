@@ -2,6 +2,7 @@
 
 import csv
 import os, sys
+import random
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -10,6 +11,8 @@ from keras.layers import Flatten, Dense, core, Dropout
 from keras.layers.convolutional import Convolution2D, Cropping2D
 from keras.layers.pooling import MaxPooling2D
 from keras import optimizers
+
+random.seed(42)
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -44,6 +47,9 @@ def read_csv(dirname, augment_with_horiz_flip=False):
         if rel_path_image_filename == None:
             print("ERROR: path does not exist:", rel_path_image_filename)
             sys.exit(1)
+        if not os.path.exists(rel_path_image_filename):
+            print("Skipping missing file:", rel_path_image_filename)
+            continue
         # cv2.imread() reads in as BGR by default. Convert to RGB for our own sanity.
         image = cv2.imread(rel_path_image_filename)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

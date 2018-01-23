@@ -35,6 +35,9 @@ def fixup_paths(line, dirname):
     for ii in range(3): # uses CENTER_IMAGE_INDEX implicitly
         base_filename = os.path.basename(line[ii])
         rel_path_image_filename = dirname + "/IMG/" + base_filename
+        if not os.path.exists(rel_path_image_filename):
+            print("Skipping missing file:", rel_path_image_filename)
+            return None
         line[ii] = rel_path_image_filename
     return line
 
@@ -45,6 +48,9 @@ def read_csv(dirname):
         reader = csv.reader(csvfile)
         for line in reader:
             line = fixup_paths(line, dirname)
+            if line == None:
+                continue
+
             # Adding a 0 or 1 to determine if the image should be flipped
             # when it's processed.
             line.append(0)
