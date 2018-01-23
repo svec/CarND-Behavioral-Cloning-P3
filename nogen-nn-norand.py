@@ -13,6 +13,7 @@ from keras.layers.pooling import MaxPooling2D
 from keras import optimizers
 
 random.seed(42)
+np.random.seed(42)
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
