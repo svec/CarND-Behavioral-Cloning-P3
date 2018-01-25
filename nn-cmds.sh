@@ -14,8 +14,9 @@
 
 # aws-2
 #./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0 --model_file_output model.h5.r-02-r-0-s-01234-c0 >& nn.out.r-02-r-0-s-01234-c0
-#./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.r-02-r-0-s-01234-c01 >& nn.out.r-02-r-0-s-01234-c01
-./nn.py --model_type nvidia --data_dirs data,r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.d-r-02-r-0-s-01234-c01 >& nn.out.d-r-02-r-0-s-01234-c01
+#./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.r-02-r-0-s-01234-c01 >& nn.out.r-02-r-0-s-01234-c01 # good!
+./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.r-023-r-0-s-01234-c01 >& nn.out.r-023-r-0-s-01234-c01
+#./nn.py --model_type nvidia --data_dirs data,r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.d-r-02-r-0-s-01234-c01 >& nn.out.d-r-02-r-0-s-01234-c01 # Not good, crashes after bridge
 
 #bad#./nn.py --model_type nvidia --data_dirs r-1 --model_file_output model.h5.r-1 >& nn.out.r-1
 #bad#./nn.py --model_type nvidia --data_dirs r-0,r-1 --model_file_output model.h5.r-01 >& nn.out.r-01
