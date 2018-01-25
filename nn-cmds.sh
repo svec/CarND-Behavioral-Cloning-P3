@@ -20,7 +20,9 @@
 #./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2 --model_file_output model.h5.r-023-r-0-s-01234-c012 >& nn.out.r-023-r-0-s-01234-c012 # good!!! Gets to the penultimate curve
 #./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3 --model_file_output model.h5.r-023-r-0-s-01234-c0123 >& nn.out.r-023-r-0-s-01234-c0123 # rough until the bridge, then bad
 #./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-4,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3 --model_file_output model.h5.r-0234-r-0-s-01234-c0123 >& nn.out.r-0234-r-0-s-01234-c0123
-./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-4,r-5,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3 --model_file_output model.h5.r-02345-r-0-s-01234-c0123 >& nn.out.r-02345-r-0-s-01234-c0123
+#./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-4,r-5,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3 --model_file_output model.h5.r-02345-r-0-s-01234-c0123 >& nn.out.r-02345-r-0-s-01234-c0123
+./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-4,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3,r-curve-4 --model_file_output model.h5.r-0234-r-0-s-01234-c01234 >& nn.out.r-0234-r-0-s-01234-c01234
+./nn.py --model_type nvidia --data_dirs r-0,r-2,r-3,r-4,r-5,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1,r-curve-2,r-curve-3,r-curve-4 --model_file_output model.h5.r-02345-r-0-s-01234-c01234 >& nn.out.r-02345-r-0-s-01234-c01234
 
 #bad#./nn.py --model_type nvidia --data_dirs r-1 --model_file_output model.h5.r-1 >& nn.out.r-1
 #bad#./nn.py --model_type nvidia --data_dirs r-0,r-1 --model_file_output model.h5.r-01 >& nn.out.r-01
