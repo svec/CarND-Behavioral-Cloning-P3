@@ -13,7 +13,8 @@
 #./nn.py --model_type nvidia --learning_rate 0.0001 --data_dirs r-2 --model_file_output model.h5.r-2 >& nn.out.r-2-lr.0001
 
 # aws-2
-./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0 --model_file_output model.h5.r-02-r-0-s-01234-c0 >& nn.out.r-02-r-0-s-01234-c0
+#./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0 --model_file_output model.h5.r-02-r-0-s-01234-c0 >& nn.out.r-02-r-0-s-01234-c0
+./nn.py --model_type nvidia --data_dirs r-0,r-2,r-rev-0,r-swerve-0,r-swerve-1,r-swerve-2,r-swerve-3,r-swerve-4,r-curve-0,r-curve-1 --model_file_output model.h5.r-02-r-0-s-01234-c01 >& nn.out.r-02-r-0-s-01234-c01
 
 #bad#./nn.py --model_type nvidia --data_dirs r-1 --model_file_output model.h5.r-1 >& nn.out.r-1
 #bad#./nn.py --model_type nvidia --data_dirs r-0,r-1 --model_file_output model.h5.r-01 >& nn.out.r-01
