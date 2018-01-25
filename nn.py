@@ -118,6 +118,7 @@ def main(_):
     # r-2: fwd lap - problem data?
     # r-3: fwd lap until bridge, several post-bridge passes
     # r-4: fwd lap correcting right edge driving, several post-bridge curve passes
+    # r-5: 2 fwd laps, pretty clean
     # r-rev-0: reverse lap
     # r-swerve-0: swerving in from the right edges for 1 lap
     # r-swerve-1: swerving in from the left edges for 1 lap
