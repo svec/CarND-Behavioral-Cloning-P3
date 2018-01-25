@@ -126,6 +126,7 @@ def main(_):
     # r-curve-0: curve after bridge through the end
     # r-curve-1: more curve after bridge through the end
     # r-curve-2: more curve after bridge
+    # r-curve-3: penultimate curve until end
 
     samples = []
 
