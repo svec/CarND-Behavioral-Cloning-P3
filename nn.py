@@ -124,6 +124,8 @@ def main(_):
     # r-swerve-3: swerving in from the right edges near the starting line, and on+after the bridge
     # r-swerve-4: swerving in from the right edges in the post-bridge turn
     # r-curve-0: curve after bridge through the end
+    # r-curve-1: more curve after bridge through the end
+    # r-curve-2: more curve after bridge
 
     samples = []
 
