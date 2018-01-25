@@ -26,6 +26,9 @@ flags.DEFINE_float('learning_rate', 0.001, "learning rate")
 flags.DEFINE_string('model_type', 'nvidia', "NN model name")
 flags.DEFINE_boolean('dont_run', False, "set dont_run=true to skip the final model training run")
 flags.DEFINE_boolean('augment', True, "augment all data with horizontally flipping the image")
+flags.DEFINE_boolean('refine', False, "Refine with new data and existing model, requires --model_file_input flag")
+flags.DEFINE_string('model_file_input', None, "input model file name, only used with --refine")
+
 
 CENTER_IMAGE_INDEX = 0
 STEERING_ANGLE_INDEX = 3
@@ -116,6 +119,10 @@ def main(_):
     # r-rev-0: reverse lap
     # r-swerve-0: swerving in from the right edges for 1 lap
     # r-swerve-1: swerving in from the left edges for 1 lap
+    # r-swerve-2: swerving in from the right edges near the starting line
+    # r-swerve-3: swerving in from the right edges near the starting line, and on+after the bridge
+    # r-swerve-4: swerving in from the right edges in the post-bridge turn
+    # r-curve-0: curve after bridge through the end
 
     samples = []
 
@@ -137,103 +144,112 @@ def main(_):
     dropout_rate = FLAGS.dropout_rate
     learning_rate = FLAGS.learning_rate
     batch_size = FLAGS.batch_size
+    refine = FLAGS.refine
+    model_file_input = FLAGS.model_file_input
 
-    model = Sequential()
-
-    # Poor man's normalization.
-    # Image data starts at 0-255 (for RGB or YUV).
-    # /255 makes it 0-1, then subtracting 0.5 centers it at 0.
-    model.add(core.Lambda(lambda x: x/255.0 - 0.5, input_shape=image_shape))
-    # Crops (removes) these pixels:
-    # - top 65 pixels
-    # - bottom 25 pixels
-    # - 0 from the left or right
-    model.add(Cropping2D(cropping=((65,25), (1,1))))
-
-    print("Using model_type:", model_type)
-    print("Using dropout rate:", dropout_rate)
-    print("Using learning rate", learning_rate)
-    print("Using batch size:", batch_size)
-
-    if model_type == "basic":
-    
-        model.add(Flatten())
-        model.add(Dense(1))
-        # ____________________________________________________________________________________________________
-        # Layer (type)                     Output Shape          Param #     Connected to
-        # ====================================================================================================
-        # lambda_1 (Lambda)                (None, 160, 320, 3)   0           lambda_input_1[0][0]
-        # ____________________________________________________________________________________________________
-        # cropping2d_1 (Cropping2D)        (None, 60, 318, 3)    0           lambda_1[0][0]
-        # ____________________________________________________________________________________________________
-        # flatten_1 (Flatten)              (None, 57240)         0           cropping2d_1[0][0]
-        # ____________________________________________________________________________________________________
-        # dense_1 (Dense)                  (None, 1)             57241       flatten_1[0][0]
-        # ====================================================================================================
-        # Total params: 57,241
-        # Trainable params: 57,241
-        # Non-trainable params: 0
-    
-    elif model_type == "lenet":
-        model.add(Convolution2D(6, 5, 5, activation="relu"))
-        model.add(MaxPooling2D())
-        model.add(Convolution2D(6, 5, 5, activation="relu"))
-        model.add(MaxPooling2D())
-        model.add(Flatten())
-        model.add(Dense(120))
-        model.add(Dense(84))
-        model.add(Dense(1))
-        # X_train, y_train shapes: (1501, 160, 320, 3) (1501,)
-        # image shape: (160, 320, 3)
-        # Using model_type: lenet
-        # ____________________________________________________________________________________________________
-        # Layer (type)                     Output Shape          Param #     Connected to
-        # ====================================================================================================
-        # lambda_1 (Lambda)                (None, 160, 320, 3)   0           lambda_input_1[0][0]
-        # ____________________________________________________________________________________________________
-        # cropping2d_1 (Cropping2D)        (None, 60, 318, 3)    0           lambda_1[0][0]
-        # ____________________________________________________________________________________________________
-        # convolution2d_1 (Convolution2D)  (None, 56, 314, 6)    456         cropping2d_1[0][0]
-        # ____________________________________________________________________________________________________
-        # maxpooling2d_1 (MaxPooling2D)    (None, 28, 157, 6)    0           convolution2d_1[0][0]
-        # ____________________________________________________________________________________________________
-        # convolution2d_2 (Convolution2D)  (None, 24, 153, 6)    906         maxpooling2d_1[0][0]
-        # ____________________________________________________________________________________________________
-        # maxpooling2d_2 (MaxPooling2D)    (None, 12, 76, 6)     0           convolution2d_2[0][0]
-        # ____________________________________________________________________________________________________
-        # flatten_1 (Flatten)              (None, 5472)          0           maxpooling2d_2[0][0]
-        # ____________________________________________________________________________________________________
-        # dense_1 (Dense)                  (None, 120)           656760      flatten_1[0][0]
-        # ____________________________________________________________________________________________________
-        # dense_2 (Dense)                  (None, 84)            10164       dense_1[0][0]
-        # ____________________________________________________________________________________________________
-        # dense_3 (Dense)                  (None, 1)             85          dense_2[0][0]
-        # ====================================================================================================
-        # Total params: 668,371
-        # Trainable params: 668,371
-        # Non-trainable params: 0
-
-    elif model_type == "nvidia":
-
-        model.add(Convolution2D(24, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
-        model.add(Dropout(dropout_rate))
-        model.add(Convolution2D(36, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
-        model.add(Dropout(dropout_rate))
-        model.add(Convolution2D(48, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
-        model.add(Dropout(dropout_rate))
-        model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
-        model.add(Dropout(dropout_rate))
-        model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
-        model.add(Dropout(dropout_rate))
-        model.add(Flatten())
-        model.add(Dense(100))
-        model.add(Dense(50))
-        model.add(Dense(10))
-        model.add(Dense(1))
-
+    if refine:
+        print("Refining existing model using model_file_input:", model_file_input)
+        if not os.path.exists(model_file_input):
+            print("ERROR: model_file_input doesn't exist:", model_file_input)
+            sys.exit(1)
+        model = load_model(model_file_input)
     else:
-        print("ERROR: no valid model specified, model_type:",model_type)
-        sys.exit(1)
+        model = Sequential()
+
+        # Poor man's normalization.
+        # Image data starts at 0-255 (for RGB or YUV).
+        # /255 makes it 0-1, then subtracting 0.5 centers it at 0.
+        model.add(core.Lambda(lambda x: x/255.0 - 0.5, input_shape=image_shape))
+        # Crops (removes) these pixels:
+        # - top 65 pixels
+        # - bottom 25 pixels
+        # - 0 from the left or right
+        model.add(Cropping2D(cropping=((65,25), (1,1))))
+        
+        print("Using model_type:", model_type)
+        print("Using dropout rate:", dropout_rate)
+        print("Using learning rate", learning_rate)
+        print("Using batch size:", batch_size)
+        
+        if model_type == "basic":
+        
+            model.add(Flatten())
+            model.add(Dense(1))
+            # ____________________________________________________________________________________________________
+            # Layer (type)                     Output Shape          Param #     Connected to
+            # ====================================================================================================
+            # lambda_1 (Lambda)                (None, 160, 320, 3)   0           lambda_input_1[0][0]
+            # ____________________________________________________________________________________________________
+            # cropping2d_1 (Cropping2D)        (None, 60, 318, 3)    0           lambda_1[0][0]
+            # ____________________________________________________________________________________________________
+            # flatten_1 (Flatten)              (None, 57240)         0           cropping2d_1[0][0]
+            # ____________________________________________________________________________________________________
+            # dense_1 (Dense)                  (None, 1)             57241       flatten_1[0][0]
+            # ====================================================================================================
+            # Total params: 57,241
+            # Trainable params: 57,241
+            # Non-trainable params: 0
+        
+        elif model_type == "lenet":
+            model.add(Convolution2D(6, 5, 5, activation="relu"))
+            model.add(MaxPooling2D())
+            model.add(Convolution2D(6, 5, 5, activation="relu"))
+            model.add(MaxPooling2D())
+            model.add(Flatten())
+            model.add(Dense(120))
+            model.add(Dense(84))
+            model.add(Dense(1))
+            # X_train, y_train shapes: (1501, 160, 320, 3) (1501,)
+            # image shape: (160, 320, 3)
+            # Using model_type: lenet
+            # ____________________________________________________________________________________________________
+            # Layer (type)                     Output Shape          Param #     Connected to
+            # ====================================================================================================
+            # lambda_1 (Lambda)                (None, 160, 320, 3)   0           lambda_input_1[0][0]
+            # ____________________________________________________________________________________________________
+            # cropping2d_1 (Cropping2D)        (None, 60, 318, 3)    0           lambda_1[0][0]
+            # ____________________________________________________________________________________________________
+            # convolution2d_1 (Convolution2D)  (None, 56, 314, 6)    456         cropping2d_1[0][0]
+            # ____________________________________________________________________________________________________
+            # maxpooling2d_1 (MaxPooling2D)    (None, 28, 157, 6)    0           convolution2d_1[0][0]
+            # ____________________________________________________________________________________________________
+            # convolution2d_2 (Convolution2D)  (None, 24, 153, 6)    906         maxpooling2d_1[0][0]
+            # ____________________________________________________________________________________________________
+            # maxpooling2d_2 (MaxPooling2D)    (None, 12, 76, 6)     0           convolution2d_2[0][0]
+            # ____________________________________________________________________________________________________
+            # flatten_1 (Flatten)              (None, 5472)          0           maxpooling2d_2[0][0]
+            # ____________________________________________________________________________________________________
+            # dense_1 (Dense)                  (None, 120)           656760      flatten_1[0][0]
+            # ____________________________________________________________________________________________________
+            # dense_2 (Dense)                  (None, 84)            10164       dense_1[0][0]
+            # ____________________________________________________________________________________________________
+            # dense_3 (Dense)                  (None, 1)             85          dense_2[0][0]
+            # ====================================================================================================
+            # Total params: 668,371
+            # Trainable params: 668,371
+            # Non-trainable params: 0
+        
+        elif model_type == "nvidia":
+        
+            model.add(Convolution2D(24, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+            model.add(Dropout(dropout_rate))
+            model.add(Convolution2D(36, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+            model.add(Dropout(dropout_rate))
+            model.add(Convolution2D(48, 5, 5, border_mode="valid", subsample=(2,2), activation="relu"))
+            model.add(Dropout(dropout_rate))
+            model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
+            model.add(Dropout(dropout_rate))
+            model.add(Convolution2D(64, 3, 3, border_mode="valid", activation="relu"))
+            model.add(Dropout(dropout_rate))
+            model.add(Flatten())
+            model.add(Dense(100))
+            model.add(Dense(50))
+            model.add(Dense(10))
+            model.add(Dense(1))
+        
+        else:
+            print("ERROR: no valid model specified, model_type:",model_type)
+            sys.exit(1)
 
     #model.summary()
 
